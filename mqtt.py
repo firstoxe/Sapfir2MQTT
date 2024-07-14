@@ -9,7 +9,8 @@ import paho.mqtt.client as mqtt
 from simplelog import SimpleLog
 
 sys = os.sys
-
+if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 class Mqtt:
 

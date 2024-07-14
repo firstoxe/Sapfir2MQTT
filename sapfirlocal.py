@@ -149,7 +149,7 @@ class SapfirLocal:
         # device serial number
         dev_serial = data['id']
         # signals
-        if 'data'in data:
+        if 'data' in data:
             dev_data = data['data']
         else:
             dev_data = data
@@ -166,61 +166,120 @@ class SapfirLocal:
             dev_data:   signals from received packet
         """
         flagUniqId = False
-        # if there is such device in dictionary signals
-        if dev_serial in self.signals:
-            # device signals from dictionary signals
-            dev_signals = self.signals[dev_serial]
-            # iterate signals in received packet
-            for signal_name in dev_data:
-                # received packet with token
-                if signal_name == 'token':
-                    # remember token in dictionary tokens
-                    self.saveTokens(dev_serial, dev_data[signal_name])
-                # received packet with uniq_id
-                elif signal_name == 'uniq_id' and dev_data['uniq_id'] != 0:
-                    flagUniqId = True
-                # if there is such signal in dictionary signals[dev_serial]
-                elif signal_name in dev_signals:
-                    # signal value in received packet
-                    value = dev_data[signal_name]
-                    last_value = dev_signals[signal_name]['value']
-                    # if signal value in received packet not equal to signal
-                    # value from signals[dev_serial][signal_name]
-                    if value != last_value:
-                        last_update = \
-                            self.signals[dev_serial][signal_name]['last_update']
+        if not isinstance(dev_data, list):
+            # if there is such device in dictionary signals
+            if dev_serial in self.signals:
+                # device signals from dictionary signals
+                dev_signals = self.signals[dev_serial]
+                # iterate signals in received packet
+                for signal_name in dev_data:
+                    # received packet with token
+                    if signal_name == 'token':
+                        # remember token in dictionary tokens
+                        self.saveTokens(dev_serial, dev_data[signal_name])
+                    # received packet with uniq_id
+                    elif signal_name == 'uniq_id' and dev_data['uniq_id'] != 0:
+                        flagUniqId = True
+                    # if there is such signal in dictionary signals[dev_serial]
+                    elif signal_name in dev_signals:
+                        # signal value in received packet
+                        value = dev_data[signal_name]
+                        last_value = dev_signals[signal_name]['value']
+                        # if signal value in received packet not equal to signal
+                        # value from signals[dev_serial][signal_name]
+                        if value != last_value:
+                            last_update = \
+                                self.signals[dev_serial][signal_name]['last_update']
+                            self.signals[dev_serial][signal_name] = \
+                                self.updateSignal(dev_serial, signal_name,
+                                                  last_update, last_value, value)
+                    else:
+                        # signal value in received packet
+                        value = dev_data[signal_name]
+                        # remember new signal
                         self.signals[dev_serial][signal_name] = \
-                            self.updateSignal(dev_serial, signal_name,
-                                              last_update, last_value, value)
-                else:
-                    # signal value in received packet
-                    value = dev_data[signal_name]
-                    # remember new signal
-                    self.signals[dev_serial][signal_name] = \
-                        self.insertSignal(dev_serial, signal_name, value)
+                            self.insertSignal(dev_serial, signal_name, value)
+            else:
+                dev_signals = {}
+                for signal_name in dev_data:
+                    # received packet with token
+                    if signal_name == 'token':
+                        # remember token in dictionary tokens
+                        self.saveTokens(dev_serial, dev_data[signal_name])
+                    # received packet with uniq_id
+                    elif signal_name == 'uniq_id' and dev_data['uniq_id'] != 0:
+                        flagUniqId = True
+                    else:
+                        # signal value in received packet
+                        value = dev_data[signal_name]
+                        # remember new signal
+                        dev_signals[signal_name] = self.insertSignal(dev_serial,
+                                                                     signal_name,
+                                                                     value)
+                self.signals[dev_serial] = dev_signals
+            # received packet with uniq_id
+            if flagUniqId:
+                # checking the packet for changes in values and comparing the time
+                # of sending and receiving
+                self.checkRequest(dev_data['uniq_id'], dev_data)
         else:
-            dev_signals = {}
-            for signal_name in dev_data:
-                # received packet with token
-                if signal_name == 'token':
-                    # remember token in dictionary tokens
-                    self.saveTokens(dev_serial, dev_data[signal_name])
-                # received packet with uniq_id
-                elif signal_name == 'uniq_id' and dev_data['uniq_id'] != 0:
-                    flagUniqId = True
+            # if there is such device in dictionary signals
+            for item in dev_data:
+                flagUniqId = False
+                if dev_serial in self.signals:
+                    # device signals from dictionary signals
+                    dev_signals = self.signals[dev_serial]
+                    # iterate signals in received packet
+                    for signal_name in item:
+                        # received packet with token
+                        if signal_name == 'token':
+                            # remember token in dictionary tokens
+                            self.saveTokens(dev_serial, item[signal_name])
+                        # received packet with uniq_id
+                        elif signal_name == 'uniq_id' and item['uniq_id'] != 0:
+                            flagUniqId = True
+                        # if there is such signal in dictionary signals[dev_serial]
+                        elif signal_name in dev_signals:
+                            # signal value in received packet
+                            value = item[signal_name]
+                            last_value = dev_signals[signal_name]['value']
+                            # if signal value in received packet not equal to signal
+                            # value from signals[dev_serial][signal_name]
+                            if value != last_value:
+                                last_update = \
+                                    self.signals[dev_serial][signal_name]['last_update']
+                                self.signals[dev_serial][signal_name] = self.updateSignal(dev_serial, signal_name,
+                                                                                          last_update, last_value,
+                                                                                          value)
+                        else:
+                            # signal value in received packet
+                            value = item[signal_name]
+                            # remember new signal
+                            self.signals[dev_serial][signal_name] = self.insertSignal(dev_serial, signal_name, value)
                 else:
-                    # signal value in received packet
-                    value = dev_data[signal_name]
-                    # remember new signal
-                    dev_signals[signal_name] = self.insertSignal(dev_serial,
-                                                                 signal_name,
-                                                                 value)
-            self.signals[dev_serial] = dev_signals
-        # received packet with uniq_id
-        if flagUniqId:
-            # checking the packet for changes in values and comparing the time
-            # of sending and receiving
-            self.checkRequest(dev_data['uniq_id'], dev_data)
+                    dev_signals = {}
+                    for signal_name in item:
+                        # received packet with token
+                        if signal_name == 'token':
+                            # remember token in dictionary tokens
+                            self.saveTokens(dev_serial, item[signal_name])
+                        # received packet with uniq_id
+                        elif signal_name == 'uniq_id' and item['uniq_id'] != 0:
+                            flagUniqId = True
+                        else:
+                            # signal value in received packet
+                            value = item[signal_name]
+                            # remember new signal
+                            dev_signals[signal_name] = self.insertSignal(dev_serial,
+                                                                         signal_name,
+                                                                         value)
+                    self.signals[dev_serial] = dev_signals
+                # received packet with uniq_id
+                if flagUniqId:
+                    # checking the packet for changes in values and comparing the time
+                    # of sending and receiving
+                    self.checkRequest(item['uniq_id'], item)
+
 
     def insertSignal(self, dev_serial, signal_name, value):
         if type(value) in (list, tuple):
@@ -258,7 +317,7 @@ class SapfirLocal:
             self.saveConfig()
         elif self.confSL['addresses'][dev_serial] != addr[0]:
             self.l.n('Address for device %s was changed from %s to %s' % (
-                     dev_serial, self.confSL['addresses'][dev_serial], addr[0]))
+                dev_serial, self.confSL['addresses'][dev_serial], addr[0]))
             self.confSL['addresses'][dev_serial] = addr[0]
             self.saveConfig()
 
@@ -273,7 +332,7 @@ class SapfirLocal:
             self.saveConfig()
         elif self.confSL['tokens'][dev_serial] != token:
             self.l.n('Token for device %s was changed from %s to %s' % (
-                     dev_serial, self.confSL['tokens'][dev_serial], token))
+                dev_serial, self.confSL['tokens'][dev_serial], token))
             self.confSL['tokens'][dev_serial] = token
             self.saveConfig()
 
@@ -281,8 +340,7 @@ class SapfirLocal:
         """ dev_serial: device serial number
             signals:    signals that need to change values
         """
-        if signals and dev_serial and self.getToken(dev_serial) and \
-                self.getAddress(dev_serial):
+        if signals and dev_serial and self.getToken(dev_serial) and self.getAddress(dev_serial):
             # time in seconds
             time_sec = int(time())
             uniq_id = int(time() % 100 * 1000)
@@ -314,20 +372,41 @@ class SapfirLocal:
             request_time = self.requests[uniq_id]['time']
             for signal_name in request_signals:
                 # value signal from packet not changed
-                if request_signals[signal_name] != dev_data[signal_name]:
-                    self.l.error("Setted value %s is failed to check" %
-                                 signal_name)
-            try:
-                dev_time = dev_data['time']
-            except:
-                pass
+                if isinstance(dev_data, list):
+                    for item in dev_data:
+                        try:
+                            if request_signals[signal_name] != item[signal_name]:
+                                self.l.error("Setted value %s is failed to check" % signal_name)
+                        except:
+                            self.l.error("Setted value %s is failed to check" % signal_name)
+                else:
+                    try:
+                        if request_signals[signal_name] != dev_data[signal_name]:
+                            self.l.error("Setted value %s is failed to check" % signal_name)
+                    except:
+                        self.l.error("Setted value %s is failed to check" % signal_name)
+
+            if isinstance(dev_data, list):
+                for item in dev_data:
+                    try:
+                        dev_time = item['time']
+                    except:
+                        pass
+                    else:
+                        delta = dev_time - request_time
+                        # packet waiting limit exceeded
+                        if delta > 5:
+                            self.l.e("Fail to check sended signal because of timeout")
             else:
-                delta = dev_time - request_time
-                # packet waiting limit exceeded
-                if delta > 5:
-                    self.l.e("Fail to check sended signal because of timeout")
+                try:
+                    dev_time = dev_data['time'] if not isinstance(dev_data, list) else dev_data[0]['time']
+                except:
+                    pass
+                else:
+                    delta = dev_time - request_time
+                    # packet waiting limit exceeded
+                    if delta > 5:
+                        self.l.e("Fail to check sended signal because of timeout")
         else:
             self.l.w("Fail to found request id (possible of other local "
                      "manamgment device)")
-
-# vim: syntax=python tabstop=4 expandtab shiftwidth=4 softtabstop=4
